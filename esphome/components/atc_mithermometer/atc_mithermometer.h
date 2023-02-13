@@ -16,12 +16,28 @@ struct ParseResult {
   optional<float> humidity;
   optional<float> battery_level;
   optional<float> battery_voltage;
+  bool has_encryption;  // 0x08
   int raw_offset;
+};
+
+struct XiaomiAESVector {
+  uint8_t key[16];
+  uint8_t plaintext[16];
+  uint8_t ciphertext[16];
+  uint8_t authdata[16];
+  uint8_t iv[16];
+  uint8_t tag[16];
+  size_t keysize;
+  size_t authsize;
+  size_t datasize;
+  size_t tagsize;
+  size_t ivsize;
 };
 
 class ATCMiThermometer : public Component, public esp32_ble_tracker::ESPBTDeviceListener {
  public:
   void set_address(uint64_t address) { address_ = address; };
+  void set_bindkey(const std::string &bindkey);
 
   bool parse_device(const esp32_ble_tracker::ESPBTDevice &device) override;
   void dump_config() override;
@@ -34,6 +50,7 @@ class ATCMiThermometer : public Component, public esp32_ble_tracker::ESPBTDevice
 
  protected:
   uint64_t address_;
+  uint8_t bindkey_[16];
   sensor::Sensor *temperature_{nullptr};
   sensor::Sensor *humidity_{nullptr};
   sensor::Sensor *battery_level_{nullptr};
@@ -42,6 +59,7 @@ class ATCMiThermometer : public Component, public esp32_ble_tracker::ESPBTDevice
 
   optional<ParseResult> parse_header_(const esp32_ble_tracker::ServiceData &service_data);
   bool parse_message_(const std::vector<uint8_t> &message, ParseResult &result);
+  bool decrypt_payload(std::vector<uint8_t> &raw, const uint8_t *bindkey, const uint64_t &address);
   bool report_results_(const optional<ParseResult> &result, const std::string &address);
 };
 
